@@ -1,28 +1,20 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { CONCEPT_DEFINITIONS, GAME_CONCEPTS } from '@/lib/game-constants';
-import { Play, Pause, RotateCcw, UserCheck, Lock, ArrowRight, Send, Bot, History } from 'lucide-react';
-import { validateBingoClaim } from '@/ai/flows/validate-bingo-claim-flow';
-import { teacherChat } from '@/ai/flows/teacher-chat-flow';
+import { Play, Pause, RotateCcw, UserCheck, Lock, ArrowRight, History, CheckCircle2, XCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 const TEACHER_ACCESS_CODE = "34910";
-
-type ChatMessage = {
-  role: 'user' | 'assistant';
-  content: string;
-};
 
 export default function TeacherPage() {
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -34,13 +26,7 @@ export default function TeacherPage() {
   const [isGameActive, setIsGameActive] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
   const [validationInput, setValidationInput] = useState<string>("");
-  const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<{ isValid: boolean; reason: string } | null>(null);
-
-  // Chat State
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
     setAvailableConcepts([...GAME_CONCEPTS].sort(() => Math.random() - 0.5));
@@ -79,40 +65,41 @@ export default function TeacherPage() {
     }
   };
 
-  const handleValidate = async () => {
-    const concepts = validationInput.split(',').map(c => c.trim());
-    if (concepts.length !== 5) {
-      toast({ variant: "destructive", title: "Error", description: "Deben ser 5 conceptos exactos." });
+  const handleValidate = () => {
+    const concepts = validationInput.split(',').map(c => c.trim()).filter(c => c !== "");
+    
+    if (concepts.length < 1) {
+      toast({ variant: "destructive", title: "Error", description: "Ingresa al menos un concepto." });
       return;
     }
-    setIsValidating(true);
-    try {
-      const result = await validateBingoClaim({
-        winningLineConcepts: concepts as [string, string, string, string, string],
-        readDefinitions: readDefinitions
-      });
-      setValidationResult(result);
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error IA", description: "Fallo en la validación." });
-    } finally {
-      setIsValidating(false);
-    }
-  };
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim() || isTyping) return;
-    const userMsg = chatInput.trim();
-    setChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
-    setChatInput("");
-    setIsTyping(true);
-    try {
-      const response = await teacherChat({ message: userMsg, gameContext: JSON.stringify(CONCEPT_DEFINITIONS) });
-      setChatMessages(prev => [...prev, { role: 'assistant', content: response.answer }]);
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "IA no disponible." });
-    } finally {
-      setIsTyping(false);
+    const invalidConcepts: string[] = [];
+    const notCalledConcepts: string[] = [];
+
+    concepts.forEach(concept => {
+      const definition = CONCEPT_DEFINITIONS[concept];
+      if (!definition) {
+        invalidConcepts.push(concept);
+      } else if (!readDefinitions.includes(definition)) {
+        notCalledConcepts.push(concept);
+      }
+    });
+
+    if (invalidConcepts.length > 0) {
+      setValidationResult({
+        isValid: false,
+        reason: `Los siguientes términos no existen en el juego: ${invalidConcepts.join(', ')}.`
+      });
+    } else if (notCalledConcepts.length > 0) {
+      setValidationResult({
+        isValid: false,
+        reason: `Los siguientes términos aún no han sido dictados: ${notCalledConcepts.join(', ')}.`
+      });
+    } else {
+      setValidationResult({
+        isValid: true,
+        reason: "¡Excelente! Todos los conceptos marcados son correctos y han sido dictados en esta partida."
+      });
     }
   };
 
@@ -154,40 +141,9 @@ export default function TeacherPage() {
           <Badge variant="secondary" className="bg-primary/10 text-primary font-black px-3 py-1 rounded-full uppercase text-[10px] tracking-widest">Master</Badge>
           <h1 className="font-headline font-black text-lg">Director</h1>
         </div>
-        <div className="flex gap-2">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full"><Bot className="w-5 h-5 text-primary" /></Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
-              <SheetHeader className="p-6 border-b">
-                <SheetTitle className="flex items-center gap-2 font-black">Asistente IA</SheetTitle>
-              </SheetHeader>
-              <ScrollArea className="flex-1 p-4">
-                <div className="space-y-4">
-                  {chatMessages.map((msg, i) => (
-                    <div key={i} className={cn(
-                      "flex flex-col max-w-[85%] rounded-2xl p-4 text-sm shadow-sm",
-                      msg.role === 'user' 
-                        ? "bg-primary text-primary-foreground ml-auto rounded-tr-none" 
-                        : "bg-muted text-foreground mr-auto rounded-tl-none"
-                    )}>
-                      {msg.content}
-                    </div>
-                  ))}
-                  {isTyping && <div className="p-4 bg-muted animate-pulse rounded-2xl mr-auto text-xs font-bold">IA pensando...</div>}
-                </div>
-              </ScrollArea>
-              <div className="p-4 border-t bg-background">
-                <form onSubmit={handleSendMessage} className="flex gap-2">
-                  <Input placeholder="Duda técnica..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} className="rounded-xl h-12" />
-                  <Button type="submit" size="icon" className="rounded-xl h-12 w-12"><Send className="w-4 h-4" /></Button>
-                </form>
-              </div>
-            </SheetContent>
-          </Sheet>
-          <Button variant="ghost" size="icon" onClick={handleReset} className="rounded-full"><RotateCcw className="w-5 h-5" /></Button>
-        </div>
+        <Button variant="ghost" size="icon" onClick={handleReset} className="rounded-full">
+          <RotateCcw className="w-5 h-5" />
+        </Button>
       </header>
 
       <main className="flex-1 p-4 space-y-4 max-w-lg mx-auto w-full">
@@ -282,30 +238,35 @@ export default function TeacherPage() {
         <DialogContent className="max-w-xs rounded-[2.5rem] p-6 border-none">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black">Validar Ganador</DialogTitle>
-            <DialogDescription>Dicta los 5 conceptos separados por coma.</DialogDescription>
+            <DialogDescription>Dicta los conceptos separados por coma para verificar si son correctos.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <Input 
-              placeholder="Concepto 1, Concepto 2..." 
+              placeholder="Ej: Gestión Técnica, Necesidad..." 
               value={validationInput}
               onChange={(e) => setValidationInput(e.target.value)}
               className="h-14 rounded-2xl text-lg font-bold"
             />
             {validationResult && (
               <div className={cn(
-                "p-4 rounded-2xl border-2 animate-in fade-in zoom-in",
-                validationResult.isValid ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
+                "p-4 rounded-2xl border-2 animate-in fade-in zoom-in flex gap-3",
+                validationResult.isValid ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"
               )}>
-                <p className={cn("font-black mb-1", validationResult.isValid ? "text-green-800" : "text-red-800")}>
-                  {validationResult.isValid ? "¡BINGO VÁLIDO!" : "ERROR EN LÍNEA"}
-                </p>
-                <p className="text-xs leading-relaxed">{validationResult.reason}</p>
+                <div className="shrink-0 mt-1">
+                  {validationResult.isValid ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                </div>
+                <div>
+                  <p className="font-black mb-1">
+                    {validationResult.isValid ? "¡BINGO VÁLIDO!" : "RECLAMACIÓN INVÁLIDA"}
+                  </p>
+                  <p className="text-xs leading-relaxed">{validationResult.reason}</p>
+                </div>
               </div>
             )}
           </div>
           <DialogFooter className="flex-col gap-2">
-            <Button className="w-full h-14 rounded-2xl font-black" onClick={handleValidate} disabled={isValidating}>
-              {isValidating ? "Verificando..." : "Verificar ahora"}
+            <Button className="w-full h-14 rounded-2xl font-black" onClick={handleValidate}>
+              Verificar ahora
             </Button>
             <Button variant="ghost" className="w-full h-12" onClick={() => {setShowValidation(false); setValidationResult(null);}}>Cerrar</Button>
           </DialogFooter>

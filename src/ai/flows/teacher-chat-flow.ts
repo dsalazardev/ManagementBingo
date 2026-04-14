@@ -22,10 +22,6 @@ const TeacherChatOutputSchema = z.object({
 });
 export type TeacherChatOutput = z.infer<typeof TeacherChatOutputSchema>;
 
-export async function teacherChat(input: TeacherChatInput): Promise<TeacherChatOutput> {
-  return teacherChatFlow(input);
-}
-
 const teacherChatPrompt = ai.definePrompt({
   name: 'teacherChatPrompt',
   input: { schema: TeacherChatInputSchema },
@@ -44,17 +40,10 @@ Consulta del Profesor:
 Responde de forma concisa, profesional y pedagógica. Si te preguntan por un término que no está en el contexto, usa tu conocimiento general para dar una definición alineada con la gestión técnica profesional.`,
 });
 
-const teacherChatFlow = ai.defineFlow(
-  {
-    name: 'teacherChatFlow',
-    inputSchema: TeacherChatInputSchema,
-    outputSchema: TeacherChatOutputSchema,
-  },
-  async (input) => {
-    const response = await teacherChatPrompt(input);
-    if (!response || !response.output) {
-      throw new Error('La IA no pudo generar una respuesta válida.');
-    }
-    return response.output;
+export async function teacherChat(input: TeacherChatInput): Promise<TeacherChatOutput> {
+  const { output } = await teacherChatPrompt(input);
+  if (!output) {
+    return { answer: "Lo siento, tuve un problema al procesar tu respuesta. Por favor, intenta de nuevo." };
   }
-);
+  return output;
+}

@@ -2,17 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { CONCEPT_DEFINITIONS, GAME_CONCEPTS } from '@/lib/game-constants';
-import { Play, Pause, RotateCcw, CheckCircle2, AlertTriangle, HelpCircle, UserCheck } from 'lucide-react';
+import { Play, Pause, RotateCcw, CheckCircle2, AlertTriangle, HelpCircle, UserCheck, Lock, ArrowRight } from 'lucide-react';
 import { validateBingoClaim } from '@/ai/flows/validate-bingo-claim-flow';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { toast } from '@/hooks/use-toast';
+
+const TEACHER_ACCESS_CODE = "34910";
 
 export default function TeacherPage() {
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [accessCodeInput, setAccessCodeInput] = useState("");
+  
   const [readDefinitions, setReadDefinitions] = useState<string[]>([]);
   const [availableConcepts, setAvailableConcepts] = useState<string[]>([]);
   const [currentConcept, setCurrentConcept] = useState<string | null>(null);
@@ -25,6 +31,24 @@ export default function TeacherPage() {
   useEffect(() => {
     setAvailableConcepts([...GAME_CONCEPTS].sort(() => Math.random() - 0.5));
   }, []);
+
+  const handleAccessSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (accessCodeInput === TEACHER_ACCESS_CODE) {
+      setIsAuthorized(true);
+      toast({
+        title: "Acceso concedido",
+        description: "Bienvenido, Director de Juego.",
+      });
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Código incorrecto",
+        description: "El código de acceso ingresado no es válido.",
+      });
+      setAccessCodeInput("");
+    }
+  };
 
   const handleNextDefinition = () => {
     if (availableConcepts.length === 0) return;
@@ -48,7 +72,11 @@ export default function TeacherPage() {
   const handleValidate = async () => {
     const concepts = validationInput.split(',').map(c => c.trim());
     if (concepts.length !== 5) {
-      alert("Por favor ingrese exactamente 5 conceptos separados por comas.");
+      toast({
+        variant: "destructive",
+        title: "Error de formato",
+        description: "Por favor ingrese exactamente 5 conceptos separados por comas.",
+      });
       return;
     }
 
@@ -61,10 +89,55 @@ export default function TeacherPage() {
       setValidationResult(result);
     } catch (error) {
       console.error("Validation failed", error);
+      toast({
+        variant: "destructive",
+        title: "Error de validación",
+        description: "No se pudo completar la auditoría con la IA.",
+      });
     } finally {
       setIsValidating(false);
     }
   };
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-primary/5 via-background to-accent/5">
+        <Card className="max-w-md w-full border-2 shadow-2xl">
+          <CardHeader className="text-center space-y-2">
+            <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-2">
+              <Lock className="w-6 h-6" />
+            </div>
+            <CardTitle className="text-2xl font-headline font-bold">Acceso Restringido</CardTitle>
+            <CardDescription>
+              Solo el Director de Juego puede acceder a este panel. Ingrese el código de autorización.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleAccessSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Input
+                  type="password"
+                  placeholder="Código de ingreso"
+                  value={accessCodeInput}
+                  onChange={(e) => setAccessCodeInput(e.target.value)}
+                  className="text-center text-2xl tracking-[0.5em] h-14 font-mono"
+                  autoFocus
+                />
+              </div>
+              <Button type="submit" className="w-full h-12 text-lg font-semibold group">
+                Verificar Identidad <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </form>
+          </CardContent>
+          <CardFooter className="justify-center border-t pt-4">
+            <p className="text-xs text-muted-foreground italic">
+              Si eres estudiante, regresa a la página principal.
+            </p>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6 space-y-6">
@@ -147,7 +220,7 @@ export default function TeacherPage() {
               <CardTitle className="font-headline">Instrucciones del Director</CardTitle>
             </CardHeader>
             <CardContent className="prose prose-sm max-w-none text-muted-foreground">
-              <ul>
+              <ul className="list-disc pl-5 space-y-2">
                 <li>Exige silencio absoluto antes de leer cada definición.</li>
                 <li>Lee pausadamente; recuerda que el estudiante debe procesar y buscar visualmente.</li>
                 <li>Si un concepto es difícil, puedes dar una pequeña pista contextual.</li>

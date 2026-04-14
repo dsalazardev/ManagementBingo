@@ -2,17 +2,17 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { CONCEPT_DEFINITIONS, GAME_CONCEPTS } from '@/lib/game-constants';
-import { Play, Pause, RotateCcw, CheckCircle2, AlertTriangle, UserCheck, Lock, ArrowRight, MessageSquare, Send, Bot, X as CloseIcon, MoreHorizontal, History, Settings } from 'lucide-react';
+import { Play, Pause, RotateCcw, UserCheck, Lock, ArrowRight, Send, Bot, History } from 'lucide-react';
 import { validateBingoClaim } from '@/ai/flows/validate-bingo-claim-flow';
 import { teacherChat } from '@/ai/flows/teacher-chat-flow';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -41,7 +41,6 @@ export default function TeacherPage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setAvailableConcepts([...GAME_CONCEPTS].sort(() => Math.random() - 0.5));
@@ -245,7 +244,7 @@ export default function TeacherPage() {
               </Button>
               <Button 
                 variant="accent" 
-                className="flex-1 h-14 rounded-2xl bg-accent text-white font-black hover:bg-accent/90"
+                className="flex-1 h-14 rounded-2xl font-black"
                 onClick={() => setShowValidation(true)}
               >
                 <UserCheck className="mr-2 h-5 w-5" /> Validar

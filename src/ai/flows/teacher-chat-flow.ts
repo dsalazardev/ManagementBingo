@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Un flujo de Genkit para asistir al Director de Juego con dudas sobre los conceptos.
@@ -50,7 +51,10 @@ const teacherChatFlow = ai.defineFlow(
     outputSchema: TeacherChatOutputSchema,
   },
   async (input) => {
-    const { output } = await teacherChatPrompt(input);
-    return output!;
+    const response = await teacherChatPrompt(input);
+    if (!response || !response.output) {
+      throw new Error('La IA no pudo generar una respuesta válida.');
+    }
+    return response.output;
   }
 );

@@ -1,19 +1,27 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { CONCEPT_DEFINITIONS, GAME_CONCEPTS } from '@/lib/game-constants';
-import { Play, Pause, RotateCcw, CheckCircle2, AlertTriangle, HelpCircle, UserCheck, Lock, ArrowRight } from 'lucide-react';
+import { Play, Pause, RotateCcw, CheckCircle2, AlertTriangle, HelpCircle, UserCheck, Lock, ArrowRight, MessageSquare, Send, Bot, X as CloseIcon } from 'lucide-react';
 import { validateBingoClaim } from '@/ai/flows/validate-bingo-claim-flow';
+import { teacherChat } from '@/ai/flows/teacher-chat-flow';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from '@/components/ui/sheet';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const TEACHER_ACCESS_CODE = "34910";
+
+type ChatMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
 
 export default function TeacherPage() {
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -28,9 +36,21 @@ export default function TeacherPage() {
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<{ isValid: boolean; reason: string } | null>(null);
 
+  // Chat State
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setAvailableConcepts([...GAME_CONCEPTS].sort(() => Math.random() - 0.5));
   }, []);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
 
   const handleAccessSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,7 +108,6 @@ export default function TeacherPage() {
       });
       setValidationResult(result);
     } catch (error) {
-      console.error("Validation failed", error);
       toast({
         variant: "destructive",
         title: "Error de validación",
@@ -96,6 +115,30 @@ export default function TeacherPage() {
       });
     } finally {
       setIsValidating(false);
+    }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim() || isTyping) return;
+
+    const userMsg = chatInput.trim();
+    setChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    setChatInput("");
+    setIsTyping(true);
+
+    try {
+      const context = JSON.stringify(CONCEPT_DEFINITIONS);
+      const response = await teacherChat({ message: userMsg, gameContext: context });
+      setChatMessages(prev => [...prev, { role: 'assistant', content: response.answer }]);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error de IA",
+        description: "El asistente no pudo responder en este momento.",
+      });
+    } finally {
+      setIsTyping(false);
     }
   };
 
@@ -148,7 +191,70 @@ export default function TeacherPage() {
           </h1>
           <p className="text-muted-foreground">Controla el ritmo del juego y valida las victorias.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-center">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="lg" className="gap-2 border-primary text-primary hover:bg-primary/5">
+                <Bot className="w-4 h-4" /> Consultar IA
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col h-full">
+              <SheetHeader className="p-6 border-b">
+                <SheetTitle className="flex items-center gap-2">
+                  <Bot className="w-5 h-5 text-primary" /> Asistente Pedagógico
+                </SheetTitle>
+                <SheetDescription>
+                  Pregúntame sobre cualquier concepto o término técnico del juego.
+                </SheetDescription>
+              </SheetHeader>
+              
+              <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+                <div className="space-y-4 pb-4">
+                  {chatMessages.length === 0 && (
+                    <div className="text-center py-10 space-y-2">
+                      <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
+                        <MessageSquare className="w-6 h-6" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">¿Tienes alguna duda sobre un concepto? <br/>¡Pregúntame!</p>
+                    </div>
+                  )}
+                  {chatMessages.map((msg, i) => (
+                    <div key={i} className={cn(
+                      "flex flex-col max-w-[85%] rounded-lg p-3 text-sm",
+                      msg.role === 'user' 
+                        ? "bg-primary text-primary-foreground ml-auto rounded-tr-none" 
+                        : "bg-muted text-foreground mr-auto rounded-tl-none"
+                    )}>
+                      <span className="text-[10px] uppercase font-bold mb-1 opacity-70">
+                        {msg.role === 'user' ? 'Tú' : 'IA'}
+                      </span>
+                      {msg.content}
+                    </div>
+                  ))}
+                  {isTyping && (
+                    <div className="bg-muted text-foreground mr-auto rounded-lg rounded-tl-none p-3 text-sm max-w-[85%] animate-pulse">
+                      La IA está pensando...
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+
+              <div className="p-4 border-t mt-auto bg-background">
+                <form onSubmit={handleSendMessage} className="flex gap-2">
+                  <Input 
+                    placeholder="Escribe tu duda técnica..." 
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button type="submit" size="icon" disabled={!chatInput.trim() || isTyping}>
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </form>
+              </div>
+            </SheetContent>
+          </Sheet>
+
           <Button variant="outline" size="lg" onClick={handleReset} className="gap-2">
             <RotateCcw className="w-4 h-4" /> Reiniciar
           </Button>

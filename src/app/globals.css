@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: 210 25% 98%;
+    --background: 210 40% 98%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 224 80% 51%; /* #1D55E6 */
+    --primary: 224 80% 51%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222 47% 11%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 35 91% 56%; /* #F5A52A */
+    --accent: 35 91% 56%;
     --accent-foreground: 222 47% 11%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 224 80% 51%;
-    --radius: 0.75rem;
+    --radius: 1rem;
   }
   .dark {
     --background: 222 47% 11%;
@@ -51,11 +51,24 @@
 @layer base {
   * {
     @apply border-border;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
-    @apply bg-background text-foreground font-body;
+    @apply bg-background text-foreground font-body select-none overflow-x-hidden;
+    /* Prevent pull-to-refresh on some mobile browsers if desired */
+    overscroll-behavior-y: contain;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
   }
+}
+
+/* Android-like button ripple effect simulation through scaling */
+.btn-active-scale:active {
+  transform: scale(0.96);
+  transition: transform 0.1s;
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
 }

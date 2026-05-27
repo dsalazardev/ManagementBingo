@@ -193,7 +193,12 @@ export default function TeacherPage() {
               <Button 
                 variant={isGameActive ? "secondary" : "default"} 
                 className="flex-1 h-14 rounded-2xl font-black"
-                onClick={() => setIsGameActive(!isGameActive)}
+                onClick={() => {
+                  if (!isGameActive) {
+                    handleNextDefinition();
+                  }
+                  setIsGameActive(!isGameActive);
+                }}
               >
                 {isGameActive ? <Pause className="mr-2 h-5 w-5" /> : <Play className="mr-2 h-5 w-5" />}
                 {isGameActive ? "Pausar" : "Iniciar"}
